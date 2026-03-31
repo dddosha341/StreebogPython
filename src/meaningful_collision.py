@@ -40,7 +40,7 @@ import tracemalloc
 from pathlib import Path
 from typing import Optional, Tuple
 
-from .streebog_fast import StreebogFast, streebog_512_fast
+from .hasher_interface import HasherProtocol, create_hasher, hash_bytes
 
 
 # ---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ def _create_bmp(width: int, height: int, pixels_func) -> bytes:
 
 def _x_pattern(x: int, y: int) -> Tuple[int, int, int]:
     """Рисует 'X' — белые диагонали на чёрном фоне."""
-    # Координаты нормализованы к [0, 63] для изображения 64×64
+    # Координаты нормализованы к [0, 63] для изображения 64x64
     if abs(x - y) < 4 or abs(x - (63 - y)) < 4:
         return (255, 255, 255)
     return (0, 0, 0)
@@ -124,7 +124,7 @@ def _o_pattern(x: int, y: int) -> Tuple[int, int, int]:
 # Предвычисление состояния хэшера
 # ---------------------------------------------------------------------------
 
-def _precompute_hash_state(image_data: bytes) -> Tuple[StreebogFast, bytearray]:
+def _precompute_hash_state(image_data: bytes) -> Tuple[HasherProtocol, bytearray]:
     """
     Обрабатывает все полные 64-байтовые блоки изображения
     и возвращает (hasher_state, remaining_bytes).
@@ -132,7 +132,7 @@ def _precompute_hash_state(image_data: bytes) -> Tuple[StreebogFast, bytearray]:
     Для каждого суффикса можно клонировать hasher_state,
     дообработать remaining + suffix и финализировать.
     """
-    hasher = StreebogFast(512)
+    hasher = create_hasher(digest_size=512, impl="fast")
     # Обрабатываем все полные блоки
     full_blocks = (len(image_data) // 64) * 64
     if full_blocks > 0:
@@ -142,7 +142,7 @@ def _precompute_hash_state(image_data: bytes) -> Tuple[StreebogFast, bytearray]:
 
 
 def _hash_with_suffix(
-    base_hasher: StreebogFast,
+    base_hasher: HasherProtocol,
     remaining: bytearray,
     suffix: bytes,
 ) -> bytes:
@@ -168,7 +168,7 @@ def find_meaningful_collision(
     """
     Находит два BMP-изображения с одинаковым MSB48(Streebog-512).
 
-    Создаёт два изображения 64×64: "X" и "O".
+    Создаёт два изображения 64x64: "X" и "O".
     Дописывает случайные суффиксы и ищет совпадение h48.
 
     Возвращает: (image_a_bytes, image_b_bytes, h48_value)
@@ -176,7 +176,7 @@ def find_meaningful_collision(
     import random
     rng = random.Random(42)
 
-    print("[meaningful] Создание BMP-изображений (64×64, 24-bit)...")
+    print("[meaningful] Создание BMP-изображений (64x64, 24-bit)...")
     img_a = _create_bmp(64, 64, _x_pattern)
     img_b = _create_bmp(64, 64, _o_pattern)
     print(f"[meaningful] Изображение A (X-паттерн): {len(img_a)} байт")
@@ -224,8 +224,8 @@ def find_meaningful_collision(
             final_b = img_b + suffix_b
 
             # Верификация
-            verify_a = streebog_512_fast(final_a)[:6]
-            verify_b = streebog_512_fast(final_b)[:6]
+            verify_a = hash_bytes(final_a, digest_size=512, impl="fast")[:6]
+            verify_b = hash_bytes(final_b, digest_size=512, impl="fast")[:6]
             assert verify_a == verify_b, "Верификация не прошла!"
 
             print(f"\n[meaningful] КОЛЛИЗИЯ НАЙДЕНА!")
@@ -235,8 +235,8 @@ def find_meaningful_collision(
 
             # Сохранение
             _save_meaningful_result(out_dir, final_a, final_b, prefix_b,
-                                    streebog_512_fast(final_a),
-                                    streebog_512_fast(final_b),
+                                    hash_bytes(final_a, digest_size=512, impl="fast"),
+                                    hash_bytes(final_b, digest_size=512, impl="fast"),
                                     attempts, elapsed)
 
             return final_a, final_b, prefix_b

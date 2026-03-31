@@ -7,6 +7,7 @@
 """
 
 from .streebog import streebog_512, streebog_256
+from .hasher_interface import create_hasher, hash_bytes, HasherProtocol
 
 try:
     from .streebog_fast import streebog_512_fast, streebog_256_fast
@@ -18,4 +19,7 @@ __all__ = [
     "streebog_256",
     "streebog_512_fast",
     "streebog_256_fast",
+    "create_hasher",
+    "hash_bytes",
+    "HasherProtocol",
 ]

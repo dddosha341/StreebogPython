@@ -28,7 +28,7 @@ import tracemalloc
 from pathlib import Path
 from typing import Optional, Tuple
 
-from .streebog_fast import streebog_512_fast
+from .hasher_interface import hash_bytes
 
 
 def h48(data: bytes) -> bytes:
@@ -40,7 +40,7 @@ def h48(data: bytes) -> bytes:
     но для целей коллизии выбор первых/последних байтов не принципиален,
     так как все байты хэша равномерно распределены.
     """
-    return streebog_512_fast(data)[:6]
+    return hash_bytes(data, digest_size=512, impl="fast")[:6]
 
 
 def find_collision(
@@ -105,8 +105,8 @@ def find_collision(
                 print(f"[collision] h48:  {prefix.hex()}")
 
                 # Верификация
-                full1 = streebog_512_fast(msg)
-                full2 = streebog_512_fast(other)
+                full1 = hash_bytes(msg, digest_size=512, impl="fast")
+                full2 = hash_bytes(other, digest_size=512, impl="fast")
                 assert full1[:6] == full2[:6], "Верификация не прошла!"
                 print(f"[collision] Полный хэш msg1: {full1.hex()}")
                 print(f"[collision] Полный хэш msg2: {full2.hex()}")

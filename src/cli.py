@@ -18,8 +18,7 @@ import os
 
 def cmd_hash(args: argparse.Namespace) -> None:
     """Вычисление хэша файла."""
-    from .streebog import streebog_512, streebog_256
-    from .streebog_fast import streebog_512_fast, streebog_256_fast
+    from .hasher_interface import create_hasher
 
     # Чтение данных
     if args.file:
@@ -28,14 +27,10 @@ def cmd_hash(args: argparse.Namespace) -> None:
     else:
         data = sys.stdin.buffer.read()
 
-    # Выбор функции
-    if args.fast:
-        func = streebog_256_fast if args.alg == 256 else streebog_512_fast
-    else:
-        func = streebog_256 if args.alg == 256 else streebog_512
-
-    digest = func(data)
-    print(digest.hex())
+    impl = "fast" if args.fast else "base"
+    hasher = create_hasher(digest_size=args.alg, impl=impl)
+    hasher.update(data)
+    print(hasher.hexdigest())
 
 
 def cmd_collision(args: argparse.Namespace) -> None:
@@ -55,6 +50,7 @@ def cmd_meaningful_collision(args: argparse.Namespace) -> None:
 
     find_meaningful_collision(
         out_dir=args.out_dir,
+        max_attempts=args.max_attempts,
     )
 
 
@@ -170,6 +166,8 @@ def main() -> None:
                                      help="Осмысленная коллизия (BMP)")
     p_mcoll.add_argument("--out-dir", type=str, default="data/output",
                          help="Директория для результата")
+    p_mcoll.add_argument("--max-attempts", type=int, default=50_000_000,
+                         help="Максимальное число попыток")
     p_mcoll.set_defaults(func=cmd_meaningful_collision)
 
     # --- bench ---
